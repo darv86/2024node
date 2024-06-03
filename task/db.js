@@ -1,11 +1,12 @@
 'use strict';
 
-const pg = require('pg');
-const { dbParams } = require('./config');
+import pg from 'pg';
+import config from './config.js';
 
+const { dbParams } = config;
 const pool = new pg.Pool(dbParams);
 
-module.exports = table => ({
+export default table => ({
 	async query(sql, args) {
 		return await pool.query(sql, args);
 	},

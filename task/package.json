@@ -3,6 +3,7 @@
 	"version": "9.0.0",
 	"description": "How to use DDD, SOLID, GRASP and GoF in JavaScript and Node.js",
 	"license": "MIT",
+	"type": "module",
 	"scripts": {
 		"start": "node main.js"
 	},

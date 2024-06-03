@@ -1,10 +1,8 @@
 'use strict';
 
-const config = {
-	transport: [
-		['http', false],
-		['ws', true],
-	],
+export default {
+	transport: { http: true, ws: false },
+	staticFilesPath: './static',
 	port: {
 		static: 8000,
 		dynamic: 8001,
@@ -17,5 +15,3 @@ const config = {
 		password: 'marcus',
 	},
 };
-
-module.exports = config;

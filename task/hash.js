@@ -1,9 +1,8 @@
 'use strict';
 
-const crypto = require('node:crypto');
-const config = require('./config.js');
+import crypto from 'node:crypto';
 
-const hash = password =>
+export default password =>
 	new Promise((resolve, reject) => {
 		const salt = crypto.randomBytes(16).toString('base64');
 		crypto.scrypt(password, salt, 64, (err, result) => {
@@ -11,5 +10,3 @@ const hash = password =>
 			resolve(salt + ':' + result.toString('base64'));
 		});
 	});
-
-module.exports = hash;

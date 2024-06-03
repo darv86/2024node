@@ -1,16 +1,17 @@
 // @ts-nocheck
 'use strict';
 
-const fsp = require('node:fs').promises;
-const path = require('node:path');
-const { transport, port } = require('./config.js');
-const server = require(`./${transport.find(type => type[1])[0]}.js`);
-const staticServer = require('./static.js');
-const load = require('./load.js');
-const db = require('./db.js');
-const hash = require('./hash.js');
-const logger = require('./logger.js');
+import fsp from 'node:fs/promises';
+import path from 'node:path';
+import config from './config.js';
+import staticServer from './static.js';
+import load from './load.js';
+import db from './db.js';
+import hash from './hash.js';
+import logger from './logger.js';
 
+const { transport, staticFilesPath, port } = config;
+const serverPath = `./${Object.entries(transport).find(type => type[1])[0]}.js`;
 const sandbox = {
 	console: Object.freeze(logger),
 	db: Object.freeze(db),
@@ -27,7 +28,7 @@ const routing = {};
 		const serviceName = path.basename(fileName, '.js');
 		routing[serviceName] = await load(filePath, sandbox);
 	}
-
-	staticServer('./static', port.static);
+	const server = (await import(serverPath)).default;
+	staticServer(staticFilesPath, port.static);
 	server(routing, port.dynamic);
 })();
