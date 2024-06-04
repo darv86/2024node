@@ -34,24 +34,20 @@ function scaffold(url, structure) {
 		const service = structure[serviceName];
 		const methods = Object.keys(service);
 		for (const methodName of methods) {
-			api[serviceName][methodName] = (...args) =>
-				new Promise((resolve, reject) => {
-					const [id, record] = args;
-					console.log(JSON.stringify(args), 'from scaffold');
-					// fetch(`${url}${serviceName}/${methodName}`, {
-					fetch(`${url}${serviceName}/${methodName}/${id}`, {
+			api[serviceName][methodName] = async (...args) => {
+				try {
+					const [id] = args;
+					const urlfetch = `${url}${serviceName}/${methodName}/${id}`;
+					const response = await fetch(urlfetch, {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
 						body: JSON.stringify(args),
-					}).then(res => {
-						const { status } = res;
-						if (status !== 200) {
-							reject(new Error(`Status Code: ${status}`));
-							return;
-						}
-						resolve(res.json());
 					});
-				});
+					return await response.json();
+				} catch (e) {
+					console.log(e);
+				}
+			};
 		}
 	}
 	return api;
