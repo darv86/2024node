@@ -1,13 +1,17 @@
-const country = db('country');
+'use strict';
 
-({
-  async read(id) {
-    console.log({ db });
-    return await country.read(id);
-  },
+export default sandbox => {
+	const { console, db } = sandbox;
+	const country = db('country');
+	return {
+		async read(id) {
+			console.log({ db });
+			return await country.read(id);
+		},
 
-  async find(mask) {
-    const sql = 'SELECT * from country where name like $1';
-    return await country.query(sql, [mask]);
-  },
-});
+		async find(mask) {
+			const sql = 'SELECT * from country where name like $1';
+			return await country.query(sql, [mask]);
+		},
+	};
+};
