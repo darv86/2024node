@@ -13,7 +13,7 @@ const parseBody = async req => {
 	const buffers = [];
 	for await (const chunk of req) buffers.push(chunk);
 	const data = Buffer.concat(buffers).toString();
-	return data ? JSON.parse(data) : undefined;
+	return data ? JSON.parse(data) : [];
 };
 
 export default (routing, port) => {
@@ -29,11 +29,8 @@ export default (routing, port) => {
 		const src = handler.toString();
 		const signature = src.substring(0, src.indexOf(')'));
 		const body = await parseBody(req);
-		const args = [];
-		if (signature.includes('(id') || signature.includes('(mask')) args.push(id);
-		if (signature.includes('{')) args.push(body.length ? body[1] : body);
 		console.log(`${socket.remoteAddress} ${method} ${url}`);
-		const result = await handler(...args);
+		const result = await handler(...body);
 		res.end(JSON.stringify(result.rows));
 	}).listen(port);
 
