@@ -7,7 +7,7 @@ import config from './config.js';
 import staticServer from './static.js';
 import db from './db.js';
 import hash from './hash.js';
-import logger from './logger.js';
+import logger from './logger/pinoLogger.js';
 
 const { transport, staticFilesPath, port } = config;
 const serverPath = `./${Object.entries(transport).find(type => type[1])[0]}.js`;
