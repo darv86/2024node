@@ -5,6 +5,7 @@ const path = require('node:path');
 const pg = require('pg');
 const metasql = require('metasql');
 const config = require('./config.js');
+const os = require('node:os');
 
 const DB = path.join(process.cwd(), './db');
 const SCHEMAS = path.join(process.cwd(), './schemas');
@@ -24,7 +25,7 @@ const notEmpty = (s) => s.trim() !== '';
 const executeFile = async (client, name) => {
   console.log(`Execute file: ${name}`);
   const sql = await read(name);
-  const commands = sql.split(';\n').filter(notEmpty);
+  const commands = sql.split(';' + os.EOL).filter(notEmpty);
   for (const command of commands) {
     await execute(client, command);
   }

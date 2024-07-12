@@ -7,8 +7,6 @@ const transport = {
 	http(url, serviceName, methodName) {
 		return (...args) =>
 			new Promise((resolve, reject) => {
-				// const [params] = args;
-				// const urlfetch = `${url}${serviceName}/${methodName}/${params || ''}`;
 				const urlfetch = `${url}${serviceName}/${methodName}/`;
 				fetch(urlfetch, {
 					method: 'POST',
