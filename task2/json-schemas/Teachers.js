@@ -1,14 +1,16 @@
-({
-	$schema: 'https://json-schema.org/draft/2020-12/schema',
+'use strict';
+
+module.exports = {
+	$id: 'Teachers',
+	// $schema: 'https://json-schema.org/draft/2020-12/schema',
 	title: 'Teachers',
 	type: 'object',
 	properties: {
-		id: { type: 'number', unique: true },
+		id: { type: 'number' },
 		name: { type: 'string' },
+		middleName: { type: 'string' },
 		surname: { type: 'string' },
-		degree: {
-			type: 'number',
-		},
+		role: { $ref: 'Roles' },
 	},
-	required: ['id', 'name', 'surname', 'degree'],
-});
+	required: ['id', 'name', 'middleName', 'surname', 'role'],
+};
