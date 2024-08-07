@@ -2,11 +2,9 @@
 
 module.exports = {
 	$id: 'Teachers',
-	// $schema: 'https://json-schema.org/draft/2020-12/schema',
-	title: 'Teachers',
 	type: 'object',
 	properties: {
-		id: { type: 'number' },
+		id: { type: 'number', unique: true },
 		name: { type: 'string' },
 		middleName: { type: 'string' },
 		surname: { type: 'string' },

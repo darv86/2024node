@@ -4,29 +4,33 @@ const fsp = require('node:fs').promises;
 const path = require('node:path');
 const pg = require('pg');
 const config = require('./config.js');
-const os = require('node:os');
-const url = require('node:url');
-
-// const { validator } = require('@exodus/schemasafe');
 const Ajv = require('ajv/dist/2019');
 
 const DB = path.join(process.cwd(), './db');
 const SCHEMAS = path.join(process.cwd(), './json-schemas');
 
-const entity = {
+const entityTeacher = {
 	id: 1,
 	name: 'john',
 	middleName: 'mark',
 	surname: 'bob',
-	// role: { id: 1, role: 'professor' },
+	role: { id: 1, roleName: 'professor' },
+};
+
+const entitySubject = {
+	id: 1,
+	subjectName: 'math',
+	role: { id: 1, roleName: 'professor' },
 };
 
 (async () => {
 	// await cleanDb();
 	const schemaFilesArr = await getSchemaFilesArr();
-	const ajv = new Ajv({ schemas: schemaFilesArr, allErrors: true });
-	const validator = ajv.getSchema('Teachers');
-	console.log(validator(entity), validator.errors);
+	const ajv = new Ajv({ strict: false, schemas: schemaFilesArr, allErrors: true });
+	const validator = ajv.getSchema('Subjects');
+	if (!validator(entitySubject))
+		throw new Error('entity is invalid', { cause: validator.errors });
+	console.log('entity is valid');
 })().catch(err => {
 	console.error(err);
 });

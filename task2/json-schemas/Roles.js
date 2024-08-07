@@ -2,12 +2,10 @@
 
 module.exports = {
 	$id: 'Roles',
-	// $schema: 'https://json-schema.org/draft/2020-12/schema',
-	title: 'Roles',
 	type: 'object',
 	properties: {
-		id: { type: 'number' },
-		role: { type: 'string' },
+		id: { type: 'number', unique: true },
+		roleName: { type: 'string' },
 	},
-	required: ['id', 'role'],
+	required: ['id', 'roleName'],
 };
