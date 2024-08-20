@@ -4,8 +4,8 @@ module.exports = {
 	$id: 'Roles',
 	type: 'object',
 	properties: {
-		id: { type: 'number', unique: true },
-		roleName: { type: 'string' },
+		id: { type: 'integer', identity: true },
+		roleName: { type: 'string', index: true, notNull: true },
 	},
 	required: ['id', 'roleName'],
 };

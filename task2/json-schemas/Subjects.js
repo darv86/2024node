@@ -4,9 +4,9 @@ module.exports = {
 	$id: 'Subjects',
 	type: 'object',
 	properties: {
-		id: { type: 'number', unique: true },
-		subjectName: { type: 'string' },
-		role: { $ref: 'Roles' },
+		id: { type: 'integer', identity: true },
+		subjectName: { type: 'string', index: true, notNull: true },
+		role: { $ref: 'Roles', notNull: true },
 	},
 	required: ['id', 'subjectName', 'role'],
 };
