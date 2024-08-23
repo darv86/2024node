@@ -21,6 +21,8 @@ class StructureBuilder {
 		boolean: 'boolean',
 	};
 
+	#columnOpts = {};
+
 	#keywords = ['identity', 'primaryKey', '$ref', 'index', 'notNull'];
 
 	#schemaParts = {};
@@ -49,51 +51,64 @@ class StructureBuilder {
 		return this;
 	}
 
-	#takeColumnParts() {
-		for (const schema of this.schemas) {
-			const columns = schema.properties;
-			this.#columnParts[schema.$id] = this.#columnParts[schema.$id] ?? {};
-			for (const columnName of Object.keys(columns)) {
-				this.#columnParts[schema.$id][columnName] = `"${columnName}" ${
-					this.#sqlTypes[columns[columnName].type] ?? this.#sqlTypes.integer
-				}${
-					this.#schemaParts[schema.$id].notNull?.includes(columnName) ? ' NOT NULL' : ''
-				};${eol}`;
-			}
-		}
-		// console.dir({ columnParts: this.#columnParts }, { depth: null });
-		return this;
+	#getClause({ schemaName = '', column = '', keyword = '' }) {
+		const schema = this.schemas.find(schema => schema.$id === schemaName);
+		const schemaNameRef = schema?.properties[column]?.$ref;
+		const columnRef = this.#schemaParts[schemaNameRef]?.identity[0];
+		const clause = {
+			identity: ` generated always as identity`,
+			primaryKey: `ALTER TABLE "${schemaName}" ADD CONSTRAINT "pk${schemaName}" PRIMARY KEY ("${column}");`,
+			$ref: `ALTER TABLE "${schemaName}" ADD CONSTRAINT "fk${
+				schemaName + schemaNameRef
+			}" FOREIGN KEY ("${column}") REFERENCES "${schemaNameRef}" ("${columnRef}");`,
+			index: `CREATE UNIQUE INDEX "ak${schemaName}" ON "${schemaName}" ("${column}");`,
+			notNull: ` NOT NULL`,
+		};
+		return clause[keyword];
 	}
 
 	#takeClauseParts() {
 		for (const schemaName of Object.keys(this.#schemaParts)) {
 			this.#clauseParts[schemaName] = this.#clauseParts[schemaName] ?? {};
 			for (const keyword of Object.keys(this.#schemaParts[schemaName])) {
-				this.#clauseParts[schemaName][keyword] =
-					this.#clauseParts[schemaName][keyword] ?? {};
+				this.#clauseParts[schemaName][keyword] = this.#clauseParts[schemaName][keyword] ?? {};
 				for (const column of this.#schemaParts[schemaName][keyword]) {
 					this.#clauseParts[schemaName][keyword][column] =
 						this.#clauseParts[schemaName][keyword][column] ?? {};
-					this.#clauseParts[schemaName][keyword][column] = ``;
+					this.#clauseParts[schemaName][keyword][column] = this.#getClause({
+						schemaName,
+						column,
+						keyword,
+					});
 				}
 			}
 		}
-		console.dir({ clauseParts: this.#clauseParts }, { depth: null });
+		// console.dir({ clauseParts: this.#clauseParts }, { depth: null });
+		// console.dir({ schemas: this.schemas }, { depth: null });
 		return this;
 	}
 
-	// #keywords = {
-	// 	identity: `generated always as identity`,
-	// 	primaryKey: `ALTER TABLE "${schema.$id}" ADD CONSTRAINT "pk${schema.$id}" PRIMARY KEY ("accountId");`,
-	// 	$ref: `ALTER TABLE "${schema.$id}" ADD CONSTRAINT "fk${
-	// 		schema.$id + column.$ref
-	// 	}" FOREIGN KEY ("id") REFERENCES "${column.$ref}" ("id");`,
-	// 	index: `CREATE UNIQUE INDEX "ak${schema.$id}" ON "${schema.$id}" ("login);`,
-	// 	notNull: `NOT NULL`,
-	// };
+	#takeColumnParts() {
+		for (const schemaName of Object.keys(this.#schemaParts)) {
+			const columns = this.schemas.find(schema => schema.$id === schemaName).properties;
+			this.#columnParts[schemaName] = this.#columnParts[schemaName] ?? {};
+			for (const columnName of Object.keys(columns)) {
+				const sqlType = this.#sqlTypes[columns[columnName].type] ?? this.#sqlTypes.integer;
+				for (const keyword of Object.keys(this.#schemaParts[schemaName])) {
+					const keywordHasColumn = this.#schemaParts[schemaName][keyword].includes(columnName) ? keyword : '';
+					const clause = this.#getClause({ keyword: keywordHasColumn });
+					this.#columnParts[schemaName][columnName] = this.#columnParts[schemaName][columnName] ?? '';
+					this.#columnParts[schemaName][columnName] += sqlType + clause;
+					// this.#columnParts[schemaName][columnName] = `"${columnName}" ${sqlType}${clause};`;
+				}
+			}
+		}
+		console.dir({ columnParts: this.#columnParts }, { depth: null });
+		return this;
+	}
 
 	build() {
-		this.#takeSchemaParts().#takeColumnParts().#takeClauseParts();
+		this.#takeSchemaParts().#takeClauseParts().#takeColumnParts();
 	}
 }
 
