@@ -2,112 +2,62 @@
 
 const fsp = require('node:fs').promises;
 const path = require('node:path');
-const pg = require('pg');
-const config = require('./config.js');
-const Ajv = require('ajv/dist/2019');
 const os = require('node:os');
+const pg = require('pg');
+const Ajv = require('ajv/dist/2019');
+const config = require('./config.js');
+const StructureBuilder = require('./db/structureBuilder.js');
 
 const DB = path.join(process.cwd(), './db');
 const SCHEMAS = path.join(process.cwd(), './json-schemas');
+const MY_STRUCTURE = path.join(DB, 'myStructure.sql');
+
+const read = name => fsp.readFile(path.join(DB, name), 'utf8');
+
+const execute = async (client, sql) => {
+	try {
+		await client.query(sql);
+	} catch (err) {
+		console.error(err);
+	}
+};
+
+const notEmpty = s => s.trim() !== '';
+
+const executeFile = async (client, name) => {
+	console.log(`Execute file: ${name}`);
+	const sql = await read(name);
+	const commands = sql.split(';' + os.EOL).filter(notEmpty);
+	for (const command of commands) {
+		await execute(client, command);
+	}
+};
 
 (async () => {
+	const schemas = await getSchemasArr(SCHEMAS);
+	const structure = new StructureBuilder(schemas, MY_STRUCTURE);
+	await structure.build();
+
+	const inst = new pg.Client({ ...config.db, ...config.pg });
+	await inst.connect();
+	await executeFile(inst, 'install.sql');
+	await inst.end();
+	const db = new pg.Client(config.db);
+	await db.connect();
+	await executeFile(db, 'myStructure.sql');
+	// await executeFile(db, 'data.sql');
+	await db.end();
+	console.log('Environment is ready');
+
 	// await cleanDb();
-	createStructure(await getSchemasArr(), 'hi');
 })().catch(err => {
 	console.error(err);
 });
 
-const sqlType = {
-	integer: 'bigint',
-	number: 'numeric(10,2)',
-	string: 'text',
-	boolean: 'boolean',
-};
-
-function getClause(schema, column) {
-	const clauses = {
-		identity: `generated always as identity`,
-		primaryKey: `ALTER TABLE "${schema.$id}" ADD CONSTRAINT "pk${schema.$id}" PRIMARY KEY ("accountId");`,
-		$ref: `ALTER TABLE "${schema.$id}" ADD CONSTRAINT "fk${
-			schema.$id + column.$ref
-		}" FOREIGN KEY ("id") REFERENCES "${column.$ref}" ("id");`,
-		index: `CREATE UNIQUE INDEX "ak${schema.$id}" ON "${schema.$id}" ("login);`,
-		nullable: `NOT NULL`,
-	};
-	return clauses;
-}
-
-function schemaToTable(schema) {
-	let query = `CREATE TABLE "${schema.$id}" (${os.EOL}`;
-	const columns = schema.properties;
-	const columnsName = Object.keys(columns);
-	const fields = columnsName.reduce((data, name) => {
-		const clauses = getClause(schema, columns[name]);
-		console.log(clauses);
-		const field = `\t"${name}" ${sqlType[columns[name].type] ?? sqlType.integer} ;${os.EOL}`;
-		return data + field;
-	}, '');
-	const table = query.concat(fields, `);${os.EOL + os.EOL}`);
-	return table;
-}
-
-async function createStructure(schemas) {
-	const MY_STRUCTURE = path.join(DB, 'myStructure.sql');
-	let data = '';
-	for (const schema of schemas) {
-		data += schemaToTable(schema);
-	}
-	await fsp.writeFile(MY_STRUCTURE, data);
-}
-
-// const { Client } = require('pg');
-// const fs = require('fs');
-// const schemaFilePath = 'schemas.json';
-// const schemaData = JSON.parse(fs.readFileSync(schemaFilePath, 'utf8'));
-async function createTables() {
-	const client = new pg.Client(dbConfig);
-	try {
-		await client.connect();
-		// Generate queries dynamically based on schema data
-		for (const entity in schemaData.properties) {
-			const { type, properties, required } = schemaData.properties[entity];
-			const columns = Object.keys(properties)
-				.map(prop => `${prop} ${getDataType(properties[prop])}`)
-				.join(', ');
-
-			await client.query(`
-        CREATE TABLE IF NOT EXISTS ${entity} (
-          ${columns},
-          PRIMARY KEY (${required.join(', ')})
-        );
-      `);
-		}
-		console.log('Tables created successfully!');
-	} catch (error) {
-		console.error('Error creating tables:', error);
-	} finally {
-		await client.end();
-	}
-}
-
-// Helper function to map JSON schema types to PostgreSQL data types
-function getDataType(jsonType) {
-	if (jsonType.type === 'string') {
-		return 'VARCHAR(255)';
-	} else if (jsonType.type === 'integer') {
-		return 'INTEGER';
-	} else if (jsonType.type === 'number') {
-		return 'NUMERIC(10, 2)';
-	}
-	// Handle other data types as needed (e.g., dates, booleans, etc.)
-	// You can extend this function based on your specific requirements.
-	return 'TEXT';
-}
-
-async function getSchemasArr() {
-	const schemaNames = await fsp.readdir(SCHEMAS);
+async function getSchemasArr(url) {
+	const schemaNames = await fsp.readdir(url);
 	const schemaFiles = [];
-	for (const name of schemaNames) schemaFiles.push(require(path.join(SCHEMAS, name)));
+	for (const name of schemaNames) schemaFiles.push(require(path.join(url, name)));
 	return schemaFiles;
 }
 

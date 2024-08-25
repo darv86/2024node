@@ -1,121 +1,121 @@
 'use strict';
 
 const fsp = require('node:fs/promises');
-const path = require('node:path');
 const eol = require('node:os').EOL;
 
-const SCHEMAS = path.join(process.cwd(), '../json-schemas');
-
-async function getSchemasArr() {
-	const schemaNames = await fsp.readdir(SCHEMAS);
-	const schemaFiles = [];
-	for (const name of schemaNames) schemaFiles.push(require(path.join(SCHEMAS, name)));
-	return schemaFiles;
-}
-
-class StructureBuilder {
+module.exports = class StructureBuilder {
 	#sqlTypes = {
-		integer: 'bigint',
-		number: 'numeric(10,2)',
-		string: 'text',
-		boolean: 'boolean',
+		integer: ' bigint',
+		number: ' numeric(10,2)',
+		string: ' text',
+		boolean: ' boolean',
 	};
 
-	#columnOpts = {};
+	#columnOpts = {
+		identity: ' generated always as identity',
+		notNull: ' NOT NULL',
+	};
 
-	#keywords = ['identity', 'primaryKey', '$ref', 'index', 'notNull'];
+	#clauses = ['primaryKey', '$ref', 'index'];
 
-	#schemaParts = {};
 	#columnParts = {};
 	#clauseParts = {};
 
-	constructor(schemas) {
+	constructor(schemas, url) {
 		this.schemas = schemas;
+		this.url = url;
 	}
 
-	#takeSchemaParts() {
-		for (const schema of this.schemas) {
+	#takeColumnParts() {
+		this.#columnParts = this.schemas.reduce((struct, schema) => {
+			struct[schema.$id] = {};
 			const columns = schema.properties;
-			this.#schemaParts[schema.$id] = this.#schemaParts[schema.$id] ?? {};
-			for (const columnName of Object.keys(columns)) {
-				for (const keyword of this.#keywords) {
-					const schemaWithParts = this.#schemaParts[schema.$id];
-					if (keyword in columns[columnName]) {
-						schemaWithParts[keyword] = schemaWithParts[keyword] ?? [];
-						schemaWithParts[keyword].push(columnName);
+			const columnsName = Object.keys(columns);
+			columnsName.map(col => (struct[schema.$id][col] = ''));
+			for (const [col, val] of Object.entries(columns)) {
+				let desc = `"${col}"`;
+				desc += 'type' in val ? this.#sqlTypes[columns[col].type] : this.#sqlTypes.integer;
+				for (const opt of Object.keys(this.#columnOpts)) {
+					if (opt in val) desc += this.#columnOpts[opt];
+					struct[schema.$id][col] = desc;
+					// struct[schema.$id][col] = desc + ',';
+				}
+			}
+			return struct;
+		}, {});
+		// console.dir(this.#columnParts, { depth: null });
+		return this;
+	}
+
+	#takeClauseParts() {
+		this.#clauseParts = this.schemas.reduce((struct, schema) => {
+			struct[schema.$id] = {};
+			const columns = schema.properties;
+			for (const [col, val] of Object.entries(columns)) {
+				for (const clauseName of this.#clauses) {
+					if (clauseName in val) {
+						struct[schema.$id][clauseName] = struct[schema.$id][clauseName] ?? {};
+						struct[schema.$id][clauseName][col] = this.#getClause({
+							schemaName: schema.$id,
+							column: col,
+							keyword: clauseName,
+						});
 					}
 				}
 			}
-		}
-		// console.dir({ schemaParts: this.#schemaParts }, { depth: null });
+			return struct;
+		}, {});
+		// console.dir(this.#clauseParts, { depth: null });
 		return this;
 	}
 
 	#getClause({ schemaName = '', column = '', keyword = '' }) {
 		const schema = this.schemas.find(schema => schema.$id === schemaName);
 		const schemaNameRef = schema?.properties[column]?.$ref;
-		const columnRef = this.#schemaParts[schemaNameRef]?.identity[0];
-		const clause = {
-			identity: ` generated always as identity`,
+		const schemaRef = this.schemas.find(schema => schema.$id === schemaNameRef);
+		const columnNameRef =
+			schemaRef?.properties && Object.entries(schemaRef?.properties).find(([col, val]) => 'identity' in val)[0];
+		const clauses = {
 			primaryKey: `ALTER TABLE "${schemaName}" ADD CONSTRAINT "pk${schemaName}" PRIMARY KEY ("${column}");`,
 			$ref: `ALTER TABLE "${schemaName}" ADD CONSTRAINT "fk${
 				schemaName + schemaNameRef
-			}" FOREIGN KEY ("${column}") REFERENCES "${schemaNameRef}" ("${columnRef}");`,
+			}" FOREIGN KEY ("${column}") REFERENCES "${schemaNameRef}" ("${columnNameRef}");`,
 			index: `CREATE UNIQUE INDEX "ak${schemaName}" ON "${schemaName}" ("${column}");`,
-			notNull: ` NOT NULL`,
 		};
-		return clause[keyword];
+		const clause = clauses[keyword];
+		if (clause) return clause;
 	}
 
-	#takeClauseParts() {
-		for (const schemaName of Object.keys(this.#schemaParts)) {
-			this.#clauseParts[schemaName] = this.#clauseParts[schemaName] ?? {};
-			for (const keyword of Object.keys(this.#schemaParts[schemaName])) {
-				this.#clauseParts[schemaName][keyword] = this.#clauseParts[schemaName][keyword] ?? {};
-				for (const column of this.#schemaParts[schemaName][keyword]) {
-					this.#clauseParts[schemaName][keyword][column] =
-						this.#clauseParts[schemaName][keyword][column] ?? {};
-					this.#clauseParts[schemaName][keyword][column] = this.#getClause({
-						schemaName,
-						column,
-						keyword,
-					});
-				}
-			}
+	#getAllClauses(obj) {
+		let values = [];
+		function extractValues(item) {
+			if (typeof item === 'object') Object.values(item).map(extractValues);
+			else values.push(item);
 		}
-		// console.dir({ clauseParts: this.#clauseParts }, { depth: null });
-		// console.dir({ schemas: this.schemas }, { depth: null });
-		return this;
+		extractValues(obj);
+		return values;
 	}
 
-	#takeColumnParts() {
-		for (const schemaName of Object.keys(this.#schemaParts)) {
-			const columns = this.schemas.find(schema => schema.$id === schemaName).properties;
-			this.#columnParts[schemaName] = this.#columnParts[schemaName] ?? {};
-			for (const columnName of Object.keys(columns)) {
-				const sqlType = this.#sqlTypes[columns[columnName].type] ?? this.#sqlTypes.integer;
-				for (const keyword of Object.keys(this.#schemaParts[schemaName])) {
-					const keywordHasColumn = this.#schemaParts[schemaName][keyword].includes(columnName) ? keyword : '';
-					const clause = this.#getClause({ keyword: keywordHasColumn });
-					this.#columnParts[schemaName][columnName] = this.#columnParts[schemaName][columnName] ?? '';
-					this.#columnParts[schemaName][columnName] += sqlType + clause;
-					// this.#columnParts[schemaName][columnName] = `"${columnName}" ${sqlType}${clause};`;
-				}
-			}
+	#createSql() {
+		const schemasName = this.schemas.map(schema => schema.$id);
+		let query = '';
+		for (const schemaName of schemasName) {
+			query += `CREATE TABLE "${schemaName}" (${eol}`;
+			Object.values(this.#columnParts[schemaName]).map(
+				(val, i, arr) => (query += '  ' + val + (i < arr.length - 1 ? ',' : '') + eol)
+			);
+			query += ');' + eol + eol;
+			Object.values(this.#clauseParts[schemaName]).map(val => {
+				const clauses = this.#getAllClauses(val);
+				query += clauses.join(eol) + eol;
+			});
+			query += eol;
 		}
-		console.dir({ columnParts: this.#columnParts }, { depth: null });
-		return this;
+		return query;
 	}
 
-	build() {
-		this.#takeSchemaParts().#takeClauseParts().#takeColumnParts();
+	async build() {
+		const data = this.#takeClauseParts().#takeColumnParts().#createSql();
+		await fsp.writeFile(this.url, data);
 	}
-}
-
-(async () => {
-	const schemas = await getSchemasArr();
-	const structure = new StructureBuilder(schemas);
-	structure.build();
-})();
-
-module.exports = { StructureBuilder };
+};
