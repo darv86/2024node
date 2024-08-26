@@ -10,6 +10,7 @@ module.exports = {
 		surname: { type: 'string', index: true, notNull: true },
 		role: { $ref: 'Roles', notNull: true },
 		subject: { $ref: 'Subjects', notNull: true },
+		department: { $ref: 'Departments', notNull: true },
 	},
-	required: ['id', 'name', 'middleName', 'surname', 'role'],
+	required: ['id', 'name', 'middleName', 'surname', 'role', 'department'],
 };

@@ -37,7 +37,13 @@ const executeFile = async (client, name) => {
 	const schemas = await getSchemasArr(SCHEMAS);
 	const structure = new StructureBuilder(schemas, MY_STRUCTURE);
 	await structure.build();
+	await createDb();
+	// await cleanDb();
+})().catch(err => {
+	console.error(err);
+});
 
+async function createDb() {
 	const inst = new pg.Client({ ...config.db, ...config.pg });
 	await inst.connect();
 	await executeFile(inst, 'install.sql');
@@ -45,14 +51,10 @@ const executeFile = async (client, name) => {
 	const db = new pg.Client(config.db);
 	await db.connect();
 	await executeFile(db, 'myStructure.sql');
-	// await executeFile(db, 'data.sql');
+	await executeFile(db, 'myData.sql');
 	await db.end();
 	console.log('Environment is ready');
-
-	// await cleanDb();
-})().catch(err => {
-	console.error(err);
-});
+}
 
 async function getSchemasArr(url) {
 	const schemaNames = await fsp.readdir(url);
@@ -76,6 +78,7 @@ async function cleanDb() {
 		await dbConnection.query(`drop database example;`);
 		await dbConnection.query(`drop user marcus;`);
 		await dbConnection.end();
+		console.log('db dropped');
 	} catch (error) {
 		console.log(error, 'error inside cleanDb');
 	}
