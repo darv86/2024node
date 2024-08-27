@@ -26,8 +26,8 @@ ALTER TABLE "Subjects" ADD CONSTRAINT "fkSubjectsRoles" FOREIGN KEY ("role") REF
 
 CREATE TABLE "Teachers" (
   "id" bigint generated always as identity,
-  "name" text NOT NULL,
-  "middleName" text NOT NULL,
+  "name" text,
+  "middleName" text,
   "surname" text NOT NULL,
   "role" bigint NOT NULL,
   "subject" bigint NOT NULL,
