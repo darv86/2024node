@@ -21,9 +21,8 @@ module.exports = class StructureBuilder {
 	#columnParts = {};
 	#clauseParts = {};
 
-	constructor(schemas, url) {
+	constructor(schemas) {
 		this.schemas = schemas;
-		this.url = url;
 	}
 
 	#takeColumnParts() {
@@ -38,7 +37,6 @@ module.exports = class StructureBuilder {
 				for (const opt of Object.keys(this.#columnOpts)) {
 					if (opt in val) desc += this.#columnOpts[opt];
 					struct[schema.$id][col] = desc;
-					// struct[schema.$id][col] = desc + ',';
 				}
 			}
 			return struct;
@@ -114,8 +112,8 @@ module.exports = class StructureBuilder {
 		return query;
 	}
 
-	async build() {
-		const data = this.#takeClauseParts().#takeColumnParts().#createSql();
-		await fsp.writeFile(this.url, data);
+	async generateScript() {
+		const script = this.#takeClauseParts().#takeColumnParts().#createSql();
+		return script;
 	}
 };

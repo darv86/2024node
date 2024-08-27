@@ -35,10 +35,11 @@ const executeFile = async (client, name) => {
 
 (async () => {
 	const schemas = await getSchemasArr(SCHEMAS);
-	const structure = new StructureBuilder(schemas, MY_STRUCTURE);
-	await structure.build();
-	await createDb();
-	// await cleanDb();
+	const structure = new StructureBuilder(schemas);
+	const script = await structure.generateScript();
+	await fsp.writeFile(MY_STRUCTURE, script);
+	// await createDb();
+	await cleanDb();
 })().catch(err => {
 	console.error(err);
 });
